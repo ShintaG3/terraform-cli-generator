@@ -1,17 +1,23 @@
 {
   "name": "terraform-cli-generator",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A CLI tool for generating Terraform boilerplate configurations for AWS, Vercel, and GCP",
   "main": "dist/index.js",
   "bin": {
     "tf": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run copy-templates",
+    "copy-templates": "cp -r src/templates dist/",
     "dev": "ts-node src/index.ts",
     "start": "node dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "LICENSE"
+  ],
   "keywords": ["terraform", "cli", "boilerplate", "aws", "vercel", "gcp", "infrastructure", "devops"],
   "author": "shintanishino",
   "license": "MIT",
