@@ -133,7 +133,7 @@ tf gcp storage -n secure-bucket -r us-central1
 
 ```bash
 # Clone repository
-git clone https://github.com/shintanishino/terraform-cli-generator.git
+git clone https://github.com/ShintaG3/terraform-cli-generator.git
 cd terraform-cli-generator
 
 # Install dependencies
