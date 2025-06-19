@@ -1,0 +1,118 @@
+terraform {
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 5.0"
+    }
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.0"
+    }
+  }
+}
+
+provider "google" {
+  {{#if project_id}}
+  project = "{{project_id}}"
+  {{else}}
+  project = var.project_id
+  {{/if}}
+  region  = "{{region}}"
+}
+
+{{#unless project_id}}
+variable "project_id" {
+  description = "GCP Project ID"
+  type        = string
+}
+{{/unless}}
+
+resource "google_storage_bucket" "{{snakeCase name}}_function_bucket" {
+  name     = "{{kebabCase name}}-function-bucket"
+  location = "{{region}}"
+  
+  uniform_bucket_level_access = true
+}
+
+data "archive_file" "{{snakeCase name}}_function_zip" {
+  type        = "zip"
+  output_path = "{{kebabCase name}}-function.zip"
+  
+  source {
+    content = <<EOF
+const functions = require('@google-cloud/functions-framework');
+
+functions.http('{{pascalCase name}}', (req, res) => {
+  console.log('Request received:', req.method, req.url);
+  res.json({
+    message: 'Hello from {{pascalCase name}} Cloud Function!',
+    timestamp: new Date().toISOString()
+  });
+});
+EOF
+    filename = "index.js"
+  }
+  
+  source {
+    content = <<EOF
+{
+  "name": "{{kebabCase name}}-function",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "@google-cloud/functions-framework": "^3.0.0"
+  }
+}
+EOF
+    filename = "package.json"
+  }
+}
+
+resource "google_storage_bucket_object" "{{snakeCase name}}_function_source" {
+  name   = "{{kebabCase name}}-function.zip"
+  bucket = google_storage_bucket.{{snakeCase name}}_function_bucket.name
+  source = data.archive_file.{{snakeCase name}}_function_zip.output_path
+}
+
+resource "google_cloudfunctions2_function" "{{snakeCase name}}" {
+  name     = "{{kebabCase name}}-function"
+  location = "{{region}}"
+
+  build_config {
+    runtime     = "{{runtime}}"
+    entry_point = "{{pascalCase name}}"
+    
+    source {
+      storage_source {
+        bucket = google_storage_bucket.{{snakeCase name}}_function_bucket.name
+        object = google_storage_bucket_object.{{snakeCase name}}_function_source.name
+      }
+    }
+  }
+
+  service_config {
+    max_instance_count = 10
+    available_memory   = "128Mi"
+    timeout_seconds    = 60
+  }
+
+  labels = {
+    name        = "{{kebabCase name}}"
+    environment = "dev"
+  }
+}
+
+resource "google_cloud_run_service_iam_member" "{{snakeCase name}}_invoker" {
+  location = google_cloudfunctions2_function.{{snakeCase name}}.location
+  service  = google_cloudfunctions2_function.{{snakeCase name}}.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+output "function_name" {
+  value = google_cloudfunctions2_function.{{snakeCase name}}.name
+}
+
+output "function_url" {
+  value = google_cloudfunctions2_function.{{snakeCase name}}.service_config[0].uri
+}

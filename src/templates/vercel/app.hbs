@@ -1,0 +1,60 @@
+terraform {
+  required_providers {
+    vercel = {
+      source  = "vercel/vercel"
+      version = "~> 1.0"
+    }
+  }
+}
+
+provider "vercel" {
+  # Configure with VERCEL_API_TOKEN environment variable
+}
+
+resource "vercel_project" "{{snakeCase name}}" {
+  name = "{{kebabCase name}}"
+  
+  framework = "nextjs"
+  
+  git_repository = {
+    type = "github"
+    repo = "your-org/{{kebabCase name}}"
+  }
+  
+  {{#if domain}}
+  domains = ["{{domain}}"]
+  {{/if}}
+  
+  environment = [
+    {
+      key    = "NODE_ENV"
+      value  = "production"
+      target = ["production"]
+    }
+  ]
+}
+
+{{#if domain}}
+resource "vercel_domain" "{{snakeCase name}}_domain" {
+  name = "{{domain}}"
+}
+
+resource "vercel_project_domain" "{{snakeCase name}}_project_domain" {
+  project_id = vercel_project.{{snakeCase name}}.id
+  domain     = vercel_domain.{{snakeCase name}}_domain.name
+}
+{{/if}}
+
+output "project_id" {
+  value = vercel_project.{{snakeCase name}}.id
+}
+
+output "project_name" {
+  value = vercel_project.{{snakeCase name}}.name
+}
+
+{{#if domain}}
+output "domain_name" {
+  value = vercel_domain.{{snakeCase name}}_domain.name
+}
+{{/if}}

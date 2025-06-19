@@ -1,0 +1,76 @@
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "{{region}}"
+}
+
+resource "aws_iam_role" "{{snakeCase name}}_lambda_role" {
+  name = "{{kebabCase name}}-lambda-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "{{snakeCase name}}_lambda_policy" {
+  role       = aws_iam_role.{{snakeCase name}}_lambda_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+data "archive_file" "{{snakeCase name}}_lambda_zip" {
+  type        = "zip"
+  output_path = "{{kebabCase name}}-lambda.zip"
+  
+  source {
+    content  = <<EOF
+exports.handler = async (event) => {
+    console.log('Event:', JSON.stringify(event, null, 2));
+    return {
+        statusCode: 200,
+        body: JSON.stringify({
+            message: 'Hello from {{pascalCase name}} Lambda!',
+        }),
+    };
+};
+EOF
+    filename = "index.js"
+  }
+}
+
+resource "aws_lambda_function" "{{snakeCase name}}" {
+  filename         = data.archive_file.{{snakeCase name}}_lambda_zip.output_path
+  function_name    = "{{kebabCase name}}"
+  role            = aws_iam_role.{{snakeCase name}}_lambda_role.arn
+  handler          = "index.handler"
+  runtime          = "{{runtime}}"
+  source_code_hash = data.archive_file.{{snakeCase name}}_lambda_zip.output_base64sha256
+
+  tags = {
+    Name        = "{{pascalCase name}}"
+    Environment = "dev"
+  }
+}
+
+output "lambda_function_name" {
+  value = aws_lambda_function.{{snakeCase name}}.function_name
+}
+
+output "lambda_function_arn" {
+  value = aws_lambda_function.{{snakeCase name}}.arn
+}

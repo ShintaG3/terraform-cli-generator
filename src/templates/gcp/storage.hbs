@@ -1,0 +1,77 @@
+terraform {
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "google" {
+  {{#if project_id}}
+  project = "{{project_id}}"
+  {{else}}
+  project = var.project_id
+  {{/if}}
+  region  = "{{region}}"
+}
+
+{{#unless project_id}}
+variable "project_id" {
+  description = "GCP Project ID"
+  type        = string
+}
+{{/unless}}
+
+resource "google_storage_bucket" "{{snakeCase name}}" {
+  name     = "{{kebabCase name}}-bucket"
+  location = "{{region}}"
+
+  uniform_bucket_level_access = true
+
+  versioning {
+    enabled = true
+  }
+
+  lifecycle_rule {
+    condition {
+      age = 365
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
+  encryption {
+    default_kms_key_name = google_kms_crypto_key.{{snakeCase name}}_key.id
+  }
+
+  labels = {
+    name        = "{{kebabCase name}}"
+    environment = "dev"
+  }
+}
+
+resource "google_kms_key_ring" "{{snakeCase name}}_keyring" {
+  name     = "{{kebabCase name}}-keyring"
+  location = "{{region}}"
+}
+
+resource "google_kms_crypto_key" "{{snakeCase name}}_key" {
+  name     = "{{kebabCase name}}-key"
+  key_ring = google_kms_key_ring.{{snakeCase name}}_keyring.id
+}
+
+resource "google_storage_bucket_iam_member" "{{snakeCase name}}_viewer" {
+  bucket = google_storage_bucket.{{snakeCase name}}.name
+  role   = "roles/storage.objectViewer"
+  member = "allUsers"
+}
+
+output "bucket_name" {
+  value = google_storage_bucket.{{snakeCase name}}.name
+}
+
+output "bucket_url" {
+  value = google_storage_bucket.{{snakeCase name}}.url
+}

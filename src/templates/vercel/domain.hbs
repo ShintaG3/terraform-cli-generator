@@ -1,0 +1,43 @@
+terraform {
+  required_providers {
+    vercel = {
+      source  = "vercel/vercel"
+      version = "~> 1.0"
+    }
+  }
+}
+
+provider "vercel" {
+  # Configure with VERCEL_API_TOKEN environment variable
+}
+
+{{#if domain}}
+resource "vercel_domain" "{{snakeCase name}}" {
+  name = "{{domain}}"
+}
+
+resource "vercel_dns_record" "{{snakeCase name}}_www" {
+  domain = vercel_domain.{{snakeCase name}}.name
+  name   = "www"
+  type   = "CNAME"
+  value  = "cname.vercel-dns.com"
+}
+
+resource "vercel_dns_record" "{{snakeCase name}}_root" {
+  domain = vercel_domain.{{snakeCase name}}.name
+  name   = ""
+  type   = "A"
+  value  = "76.76.19.61"
+}
+
+output "domain_name" {
+  value = vercel_domain.{{snakeCase name}}.name
+}
+
+output "domain_id" {
+  value = vercel_domain.{{snakeCase name}}.id
+}
+{{else}}
+# Error: Domain name is required for domain resource
+# Use: tf vercel domain -n my-domain -d example.com
+{{/if}}
